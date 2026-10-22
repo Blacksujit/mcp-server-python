@@ -99,3 +99,45 @@ async def test_replay_execution_invalid_ids(kestra_client, cleanup):
     # Try to replay with non-existent ID
     with pytest.raises(ToolError):
         await kestra_client.call_tool("replay_execution", {"ids": ["non_existent_id"]})
+
+
+@pytest.mark.asyncio
+async def test_replay_execution_picks_latest_of_many(kestra_client, cleanup):
+    """Without ids, replay_execution replays the newest execution even when the
+    flow has more executions than fit in one search page (25)."""
+    flow_response_json = await create_flow("replay_latest.yaml", kestra_client, cleanup)
+    namespace = flow_response_json["namespace"]
+    flow_id = flow_response_json["id"]
+
+    execution_ids = []
+    for run in range(30):
+        result = await kestra_client.call_tool(
+            "execute_flow",
+            {"namespace": namespace, "flow_id": flow_id, "inputs": {"run": run}},
+        )
+        execution_id = json.loads(result.content[0].text)["id"]
+        cleanup.track_execution(execution_id)
+        execution_ids.append(execution_id)
+
+    for execution_id in execution_ids:
+        await poll_for_execution(
+            kestra_client, execution_id, max_retries=20, retry_interval=1
+        )
+
+    replay_result = await kestra_client.call_tool(
+        "replay_execution", {"namespace": namespace, "flow_id": flow_id}
+    )
+    replay_json = json.loads(replay_result.content[0].text)
+    print(f"Replay result: {replay_json}")
+
+    # Track the replayed execution too, so cleanup removes it.
+    result = await kestra_client.call_tool(
+        "list_executions", {"namespace": namespace, "flow_id": flow_id}
+    )
+    for execution in json.loads(result.content[0].text)["results"]:
+        cleanup.track_execution(execution["id"])
+
+    assert replay_json["message"] == (
+        f"Replayed execution {execution_ids[-1]} for flow \x27{flow_id}\x27 "
+        f"in namespace \x27{namespace}\x27."
+    )

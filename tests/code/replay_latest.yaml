@@ -1,0 +1,12 @@
+id: replay_latest
+namespace: company.team
+
+inputs:
+  - id: run
+    type: INT
+    defaults: 0
+
+tasks:
+  - id: log
+    type: io.kestra.plugin.core.log.Log
+    message: "Run {{ inputs.run }}"

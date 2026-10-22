@@ -121,8 +121,14 @@ async def get_latest_execution(
     # Imported here rather than at module level because compat imports this module.
     from kestra.compat import executions_search_params
 
+    # Newest first: without a sort the API returns the oldest executions first.
     params = await executions_search_params(
-        client, namespace=namespace, flow_id=flow_id, state=state or None, size=25
+        client,
+        namespace=namespace,
+        flow_id=flow_id,
+        state=state or None,
+        size=25,
+        sort="state.startDate:desc",
     )
     resp = await client.get("/executions/search", params=params)
     resp.raise_for_status()
