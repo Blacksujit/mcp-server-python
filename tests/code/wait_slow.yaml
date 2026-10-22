@@ -1,0 +1,11 @@
+id: wait_slow
+namespace: company.team
+
+tasks:
+  - id: sleep
+    type: io.kestra.plugin.core.flow.Sleep
+    duration: PT7S
+
+  - id: done
+    type: io.kestra.plugin.core.log.Log
+    message: Done

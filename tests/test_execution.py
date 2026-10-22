@@ -392,6 +392,25 @@ async def test_manage_executions(kestra_client, cleanup):
 
 
 @pytest.mark.asyncio
+async def test_execute_flow_wait_longer_than_http_timeout(kestra_client, cleanup):
+    """With wait=True, a flow that runs longer than the default 5 s HTTP timeout
+    returns its final execution instead of a timeout error."""
+    response_json = await create_flow("wait_slow.yaml", kestra_client, cleanup)
+    namespace = response_json["namespace"]
+    flow_id = response_json["id"]
+
+    result = await kestra_client.call_tool(
+        "execute_flow",
+        {"namespace": namespace, "flow_id": flow_id, "wait": True},
+    )
+    response_json = json.loads(result.content[0].text)
+    cleanup.track_execution(response_json["id"])
+    print("Execute slow flow with wait=True response:", response_json)
+    assert response_json["state"]["current"] == "SUCCESS"
+    assert [t["taskId"] for t in response_json["taskRunList"]] == ["sleep", "done"]
+
+
+@pytest.mark.asyncio
 async def test_execute_flow_with_subflow(kestra_client, cleanup):
     """Test executing a flow with a subflow and killing the parent execution with cascade=False."""
     subflow_response_json = await create_flow("hello_mcp.yaml", kestra_client, cleanup)

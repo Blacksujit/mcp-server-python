@@ -134,7 +134,12 @@ def register_execution_tools(mcp: FastMCP, client: httpx.AsyncClient) -> None:
         files = [(k, (None, str(v))) for k, v in inputs.items()]
 
         resp = await client.post(
-            f"/executions/{namespace}/{flow_id}", params=params, files=files or None
+            f"/executions/{namespace}/{flow_id}",
+            params=params,
+            files=files or None,
+            # With wait, the server holds the request open until the execution
+            # ends, which can take longer than the client's default timeout.
+            timeout=None if wait else httpx.USE_CLIENT_DEFAULT,
         )
         resp.raise_for_status()
         return await attach_execution_outputs(client, resp.json())
